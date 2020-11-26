@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keptn-monaco-service
+  namespace: keptn
+  labels:
+    "app": "keptn"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keptn-monaco-service
+  namespace: keptn
+  labels:
+    "app": "keptn"
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keptn-monaco-service
+  namespace: keptn
+  labels:
+    "app": "keptn"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: keptn-monaco-service
+subjects:
+  - kind: ServiceAccount
+    name: keptn-monaco-service
+---
+# Deployment of our monaco-service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monaco-service
+  namespace: keptn
+spec:
+  selector:
+    matchLabels:
+      run: monaco-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: monaco-service
+    spec:
+      containers:
+        - name: monaco-service
+          image: keptn-sandbox/monaco-service:latest 
+          ports:
+            - containerPort: 8080
+          env:
+            - name: EVENTBROKER
+              value: 'http://event-broker/keptn'
+            - name: CONFIGURATION_SERVICE
+              value: 'http://configuration-service:8080'
+        - name: distributor
+          image: keptn/distributor:0.7.1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 10999
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          env:
+            - name: PUBSUB_URL
+              value: 'nats://keptn-nats-cluster'
+            - name: PUBSUB_TOPIC
+              value: 'sh.keptn.>'
+            - name: PUBSUB_RECIPIENT
+              value: '127.0.0.1'
+      serviceAccountName: keptn-monaco-service
+---
+# Expose monaco-service via Port 8080 within the cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: monaco-service
+  namespace: keptn
+  labels:
+    run: monaco-service
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+  selector:
+    run: monaco-service
+

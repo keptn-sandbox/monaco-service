@@ -1,0 +1,7 @@
+config:
+    - management-zone: "management-zone.json"
+
+management-zone:
+    - environment: "{{ .Env.KEPTN_STAGE }}"
+    - name: "{{ .Env.KEPTN_PROJECT }}-{{ .Env.KEPTN_STAGE }}-{{ .Env.KEPTN_SERVICE }}"
+
