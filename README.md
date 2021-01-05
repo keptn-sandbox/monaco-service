@@ -83,7 +83,7 @@ Next, you need to upload a zip archive that contains the projects. The folder st
 **Note:** the archive has to be of type `zip`. Using the `zip` command on linux, it can be created as follows:
 
 ```
-zip -r archivename.zip directory_name
+zip -r monaco.zip directory_name
 ```
 
 You can add the file to Keptn by using 
