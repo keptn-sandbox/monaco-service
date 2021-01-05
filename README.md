@@ -80,7 +80,16 @@ Next, you need to upload a zip archive that contains the projects. The folder st
 |       +-- json and yaml files
 
 ```
-You can add the file to Keptn by using `keptn add-resource --project=PROJECTNAME --service=SERVICENAME --stage=STAGENAME --resource=monaco.zip --resourceUri=dynatrace/monaco.zip`. 
+**Note:** the archive has to be of type `zip`. Using the `zip` command on linux, it can be created as follows:
+
+```
+zip -r archivename.zip directory_name
+```
+
+You can add the file to Keptn by using 
+```
+keptn add-resource --project=PROJECTNAME --service=SERVICENAME --stage=STAGENAME --resource=monaco.zip --resourceUri=dynatrace/monaco.zip
+```
 
 `stage` and `service` are optional. The monaco-service will automatically look for this file first on the `service` level, then on `stage` level and last on `project` level.
 
