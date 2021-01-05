@@ -55,7 +55,7 @@ spec:
     spec:
       containers:
         - name: monaco-service
-          image: keptn-sandbox/monaco-service:latest 
+          image: keptnsandbox/monaco-service:0.1.0
           ports:
             - containerPort: 8080
           env:
