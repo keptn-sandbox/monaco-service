@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
@@ -93,9 +95,19 @@ func HandleConfigurationChangeEvent(myKeptn *keptn.Keptn, incomingEvent cloudeve
 	// test and apply monaco configuration
 	err = callMonaco(dtCredentials, keptnEvent.Context, data, monacoProjects, stdLogger)
 
-	// Clean up: remove temp folder for Context
-	err = common.DeleteTempFolderForKeptnContext(keptnEvent.Context)
-	stdLogger.Info(fmt.Sprintf("Delete temp folder for %s", keptnEvent.Context))
+	keeptempString := os.Getenv("MONACO_KEEP_TEMP_DIR")
+	if keeptempString == "" {
+		keeptempString = "true"
+	}
+	keeptemp, _ := strconv.ParseBool(keeptempString)
+
+	if keeptemp {
+		stdLogger.Info(fmt.Sprintf("Not deleting temp folder (MONACO_KEEP_TEMP_DIR=true) for %s", keptnEvent.Context))
+	} else {
+		// Clean up: remove temp folder for Context
+		err = common.DeleteTempFolderForKeptnContext(keptnEvent.Context)
+		stdLogger.Info(fmt.Sprintf("Delete temp folder for %s", keptnEvent.Context))
+	}
 
 	return nil
 }
@@ -194,14 +206,30 @@ func getDynatraceCredentials(secretName string, project string, logger *keptnlog
 }
 
 func callMonaco(dtCredentials *common.DTCredentials, keptnContext string, keptnEvent *keptnlib.ConfigurationChangeEventData, projects string, logger *keptnlog.Logger) error {
-	// Dry Run to test configuration structure
-	err := common.ExecuteMonaco(dtCredentials, keptnContext, keptnEvent, projects, true, true)
-	if err != nil {
-		return err
+
+	// Get Env-Variables on whether we should first do a dry run and whether we should do verbose
+	verboseString := os.Getenv("MONACO_VERBOSE_MODE")
+	if verboseString == "" {
+		verboseString = "true"
+	}
+	dryrunString := os.Getenv("MONACO_DRYRUN")
+	if dryrunString == "" {
+		dryrunString = "true"
+	}
+
+	verbose, _ := strconv.ParseBool(verboseString)
+	dryrun, _ := strconv.ParseBool(dryrunString)
+
+	if dryrun {
+		// Dry Run to test configuration structure
+		err := common.ExecuteMonaco(dtCredentials, keptnContext, keptnEvent, projects, verbose, true)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Apply configuration
-	err = common.ExecuteMonaco(dtCredentials, keptnContext, keptnEvent, projects, true, false)
+	err := common.ExecuteMonaco(dtCredentials, keptnContext, keptnEvent, projects, verbose, false)
 
 	return err
 }
