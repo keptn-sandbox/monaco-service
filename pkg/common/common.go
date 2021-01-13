@@ -457,7 +457,7 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, shkeptncontext stri
  */
 func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, shkeptncontext string, projectsPath string, logger *keptn.Logger) error {
 	// target folder should be /tmp/monaco/SHKEPTNCONTEXT/projects
-	folder := MonacoBaseFolder + shkeptncontext + MonacoProjectsSubfolder
+	folder := MonacoBaseFolder + shkeptncontext + "/" + MonacoProjectsSubfolder
 
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0644)
@@ -504,7 +504,7 @@ func PrepareFiles(keptnEvent *BaseKeptnEvent, shkeptncontext string, logger *kep
 	}
 
 	// Now lets try option 2 where we assume there is a projects folder under dynatrace. we simply download all these files
-	err = DownloadAllFilesFromSubfolder(keptnEvent, shkeptncontext, "dynatrace/projects", logger)
+	err = DownloadAllFilesFromSubfolder(keptnEvent, shkeptncontext, "/dynatrace/projects/", logger)
 
 	return err
 }
@@ -642,6 +642,7 @@ func GetAllKeptnResources(project string, stage string, service string, inheritR
 
 		targetFileName := ""
 		if startingIndex >= 0 {
+			startingIndex += len(resourceUriFolderOfInterest)
 			targetFileName = (*resource.ResourceURI)[startingIndex:]
 		}
 
