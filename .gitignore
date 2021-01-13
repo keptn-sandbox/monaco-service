@@ -26,3 +26,4 @@ monaco-service
 .idea/*
 # but allow .idea shared run configurations
 !.idea/runConfigurations/
+buildlocally.sh
