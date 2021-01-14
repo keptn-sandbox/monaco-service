@@ -70,7 +70,7 @@ spec:
             - name: MONACO_KEEP_TEMP_DIR
               value: "false"
         - name: distributor
-          image: keptn/distributor:0.7.1
+          image: keptn/distributor:0.7.3
           livenessProbe:
             httpGet:
               path: /health
