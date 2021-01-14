@@ -19,6 +19,7 @@ This implements a monaco-service for Keptn. If you want to learn more about Kept
 |Authors | Keptn Version    | [monaco-service Docker Image](https://hub.docker.com/r/keptnsandbox/monaco-service/tags) | Comment |
 |:----------------:|:----------------:|:----------------------------------------:|:----------------:|
 |[@kristofre](https://github.com/kristofre)|       0.7.3      | keptnsandbox/monaco-service:0.1.0 | Initial release |
+|[@grabnerandi](https://github.com/grabnerandi)|       0.7.3      | keptnsandbox/monaco-service:0.2.0 | Support for monaco folder structure |
 
 
 ## Installation

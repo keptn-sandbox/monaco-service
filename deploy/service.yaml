@@ -55,7 +55,7 @@ spec:
     spec:
       containers:
         - name: monaco-service
-          image: keptnsandbox/monaco-service:0.1.0
+          image: keptnsandbox/monaco-service:0.2.0
           ports:
             - containerPort: 8080
           env:
@@ -68,9 +68,9 @@ spec:
             - name: MONACO_DRYRUN
               value: "true"
             - name: MONACO_KEEP_TEMP_DIR
-              value: "true"
+              value: "false"
         - name: distributor
-          image: keptn/distributor:0.7.1
+          image: keptn/distributor:0.7.3
           livenessProbe:
             httpGet:
               path: /health
