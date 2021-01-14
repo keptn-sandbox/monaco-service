@@ -67,10 +67,33 @@ It needs the following configured:
 * A Kubernetes secret containing the values `DT_TENANT` and `DT_API_TOKEN` is needed. The `DT_API_TOKEN` should have the permission to **read** and **write configuration**
 * The *monaco-service* looks by default for the following secrets: `dynatrace`, `dynatrace-credentials` and `dynatrace-credentials-$PROJECT`. If a different secret name can be configured by adding a resource `dynatrace\monaco.conf.yaml`. In this file you can specificy in the variable `dtCreds` the name of a secret containing the info.
 
+### Option 1: Monaco projects folders
 
-### A ZIP archive containing the projects
+You can upload your monaco configuration on the service, stage or project level. If you do you have to follow the monaco folder structure starting with `projects` under the dynatrace subfolder.
+The folder structure should therefore be the following:
+```
++-- dynatrace // this is where the dynatrace related config goes in general
+|   +-- projects // this folder name needs to be used
+|       +-- projectName (this can be customized)
+|           +-- configuration1 (check monaco documentation for the possible options)
+|               +-  json and yaml files (check monaco documentation for the possible options)
+|       +-- projectN
+|           +-- json and yaml files
 
-Next, you need to upload a zip archive that contains the projects. The folder structure should be the following:
+```
+
+You can add these files to Keptn by using 
+```
+keptn add-resource --project=PROJECTNAME --service=SERVICENAME --stage=STAGENAME --resource=auto-tag/tagging.json --resourceUri=dynatrace/projects/keptnservice/auto-tag/tagging.json
+keptn add-resource --project=PROJECTNAME --service=SERVICENAME --stage=STAGENAME --resource=auto-tag/tagging.yaml --resourceUri=dynatrace/projects/keptnservice/auto-tag/tagging.yaml
+```
+
+`stage` and `service` are optional. The monaco-service will automatically download all files under the dynatrace/projects directory first on the `service` level, then on `stage` level and last on `project` level.
+
+### Option 2: A ZIP archive containing the projects
+
+Now - this is the same as Option 1 - but - instead of having each file separate in Keptn's configuration repo you can also just zip it up and upload the zipped projects directoy to the dynatrace subfolder
+The folder structure should be the following:
 ```
 +-- projects // this folder name needs to be used
 |   +-- projectName (this can be customized)

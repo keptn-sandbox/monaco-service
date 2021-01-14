@@ -38,7 +38,7 @@ RUN GOOS=linux go build -ldflags '-linkmode=external' $BUILDFLAGS -v -o monaco-s
 # https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
 FROM alpine:3.11
 ENV ENV=production
-ARG monaco_version=v1.0.1
+ARG monaco_version=v1.1.0
 # Install extra packages
 # See https://github.com/gliderlabs/docker-alpine/issues/136#issuecomment-272703023
 

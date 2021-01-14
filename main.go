@@ -29,6 +29,10 @@ type envConfig struct {
 	ConfigurationServiceUrl string `envconfig:"CONFIGURATION_SERVICE" default:""`
 	// URL of the Keptn event broker (this is where this service sends cloudevents to)
 	EventBrokerUrl string `envconfig:"EVENTBROKER" default:""`
+	// Verbose Monaco Mode
+	MonacoVerboseMode string `envconfig:"MONACO_VERBOSE_MODE" default:"true"`
+	// Monaco Dry Run
+	MonacoDryRun string `envconfig:"MONACO_DRYRUN" default:"true"`
 }
 
 /**

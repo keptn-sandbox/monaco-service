@@ -63,6 +63,12 @@ spec:
               value: 'http://event-broker/keptn'
             - name: CONFIGURATION_SERVICE
               value: 'http://configuration-service:8080'
+            - name: MONACO_VERBOSE_MODE
+              value: "true"
+            - name: MONACO_DRYRUN
+              value: "true"
+            - name: MONACO_KEEP_TEMP_DIR
+              value: "true"
         - name: distributor
           image: keptn/distributor:0.7.1
           livenessProbe:
