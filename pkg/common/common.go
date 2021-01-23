@@ -423,7 +423,12 @@ func ExecuteMonaco(dtCredentials *DTCredentials, keptnEvent *BaseKeptnEvent, pro
 
 	// also adding labels to env variables
 	for key, value := range keptnEvent.Labels {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("KEPTN_LABEL_%s=%s", strings.ToUpper(key), url.QueryEscape(value)))
+		labelKey := strings.ToUpper(key)
+		labelKey = strings.ReplaceAll(labelKey, " ", "_")
+		labelKey = strings.ReplaceAll(labelKey, "/", "_")
+		labelKey = strings.ReplaceAll(labelKey, "%", "_")
+
+		cmd.Env = append(cmd.Env, fmt.Sprintf("KEPTN_LABEL_%s=%s", labelKey, url.QueryEscape(value)))
 	}
 
 	fmt.Printf("Monaco command: %v\n", cmd.String())
