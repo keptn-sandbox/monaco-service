@@ -10,7 +10,6 @@ import (
 
 	"github.com/cloudevents/sdk-go/pkg/cloudevents"
 	keptn "github.com/keptn/go-utils/pkg/lib"
-	keptnlib "github.com/keptn/go-utils/pkg/lib"
 	keptnlog "github.com/keptn/go-utils/pkg/lib/keptn"
 
 	"github.com/kristofre/monaco-service/pkg/common"
@@ -83,7 +82,7 @@ func HandleConfigurationChangeEvent(myKeptn *keptn.Keptn, incomingEvent cloudeve
 	}
 
 	// Prepare the folder structure for monaco (create base + shkeptncontext temp folder, copy files, get monaco.zip, extract and copy to temp)
-	err = common.PrepareFiles(keptnEvent, keptnEvent.Context, stdLogger)
+	err = common.PrepareFiles(keptnEvent, stdLogger)
 	if err != nil {
 		stdLogger.Error(fmt.Sprintf("Error preparing monaco files: %s", err.Error()))
 		return err
@@ -93,7 +92,7 @@ func HandleConfigurationChangeEvent(myKeptn *keptn.Keptn, incomingEvent cloudeve
 	monacoProjects := common.GenerateMonacoProjectStringFromMonacoConfig(monacoConfigFile, keptnEvent)
 
 	// test and apply monaco configuration
-	err = callMonaco(dtCredentials, keptnEvent.Context, data, monacoProjects, stdLogger)
+	err = callMonaco(dtCredentials, keptnEvent, monacoProjects, stdLogger)
 
 	keeptempString := os.Getenv("MONACO_KEEP_TEMP_DIR")
 	if keeptempString == "" {
@@ -105,7 +104,7 @@ func HandleConfigurationChangeEvent(myKeptn *keptn.Keptn, incomingEvent cloudeve
 		stdLogger.Info(fmt.Sprintf("Not deleting temp folder (MONACO_KEEP_TEMP_DIR=true) for %s", keptnEvent.Context))
 	} else {
 		// Clean up: remove temp folder for Context
-		err = common.DeleteTempFolderForKeptnContext(keptnEvent.Context)
+		err = common.DeleteTempFolderForKeptnContext(keptnEvent)
 		stdLogger.Info(fmt.Sprintf("Delete temp folder for %s", keptnEvent.Context))
 	}
 
@@ -205,7 +204,7 @@ func getDynatraceCredentials(secretName string, project string, logger *keptnlog
 	return nil, errors.New("Could not find any Dynatrace specific secrets with the following names: " + strings.Join(secretNames, ","))
 }
 
-func callMonaco(dtCredentials *common.DTCredentials, keptnContext string, keptnEvent *keptnlib.ConfigurationChangeEventData, projects string, logger *keptnlog.Logger) error {
+func callMonaco(dtCredentials *common.DTCredentials, keptnEvent *common.BaseKeptnEvent, projects string, logger *keptnlog.Logger) error {
 
 	// Get Env-Variables on whether we should first do a dry run and whether we should do verbose
 	verboseString := os.Getenv("MONACO_VERBOSE_MODE")
@@ -222,14 +221,14 @@ func callMonaco(dtCredentials *common.DTCredentials, keptnContext string, keptnE
 
 	if dryrun {
 		// Dry Run to test configuration structure
-		err := common.ExecuteMonaco(dtCredentials, keptnContext, keptnEvent, projects, verbose, true)
+		err := common.ExecuteMonaco(dtCredentials, keptnEvent, projects, verbose, true)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Apply configuration
-	err := common.ExecuteMonaco(dtCredentials, keptnContext, keptnEvent, projects, verbose, false)
+	err := common.ExecuteMonaco(dtCredentials, keptnEvent, projects, verbose, false)
 
 	return err
 }
