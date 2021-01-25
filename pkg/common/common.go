@@ -17,7 +17,6 @@ import (
 	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
-	keptnlib "github.com/keptn/go-utils/pkg/lib"
 	keptn "github.com/keptn/go-utils/pkg/lib/keptn"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +32,7 @@ var RunLocalTest = (os.Getenv("ENV") == "localtest")
  */
 const MonacoConfigFilename = "dynatrace/monaco.conf.yaml"
 const MonacoConfigFilenameLOCAL = "dynatrace/_monaco.conf.yaml"
-const MonacoBaseFolder = "/tmp/monaco/"
+const MonacoBaseFolder = "tmp/monaco/"
 const MonacoProjectsSubfolder = "projects"
 const MonacoExecutable = "./monaco"
 
@@ -324,20 +323,20 @@ func CreateBaseFolderIfNotExist() error {
 }
 
 // Create temp folder for keptn context to store project files
-func CreateTempFolderForKeptnContext(keptnContext string) error {
-	path := MonacoBaseFolder + keptnContext
+func CreateTempFolderForKeptnContext(keptnEvent *BaseKeptnEvent) (error, string) {
+	path := GetTempMonacoFolder(keptnEvent)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		errmkdir := os.Mkdir(path, 0755)
 		if errmkdir != nil {
-			return errmkdir
+			return errmkdir, path
 		}
 	}
-	return nil
+	return nil, path
 }
 
 // Delete temp folder for cleanup
-func DeleteTempFolderForKeptnContext(keptnContext string) error {
-	path := MonacoBaseFolder + keptnContext
+func DeleteTempFolderForKeptnContext(keptnEvent *BaseKeptnEvent) error {
+	path := GetTempMonacoFolder(keptnEvent)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -348,6 +347,11 @@ func DeleteTempFolderForKeptnContext(keptnContext string) error {
 	return nil
 }
 
+// returns the tmp folder for this run, e.g: tmp/KEPTNCONTEXT-STAGE
+func GetTempMonacoFolder(keptnEvent *BaseKeptnEvent) string {
+	return fmt.Sprintf("%s%s-%s", MonacoBaseFolder, keptnEvent.Context, keptnEvent.Stage)
+}
+
 // Copy file contents to a destination
 func CopyFileContentToDestination(fileContent string, destination string) error {
 	err := ioutil.WriteFile(destination, []byte(fileContent), 0755)
@@ -355,8 +359,8 @@ func CopyFileContentToDestination(fileContent string, destination string) error 
 	return err
 }
 
-func CopyFileContentsToMonacoProject(fileContent string, keptnContext string) error {
-	path := MonacoBaseFolder + keptnContext + "/monaco.zip"
+func CopyFileContentsToMonacoProject(fileContent string, keptnEvent *BaseKeptnEvent) error {
+	path := GetTempMonacoFolder(keptnEvent) + "/monaco.zip"
 	err := CopyFileContentToDestination(fileContent, path)
 	if err != nil {
 		return err
@@ -365,8 +369,8 @@ func CopyFileContentsToMonacoProject(fileContent string, keptnContext string) er
 	return err
 }
 
-func ExtractMonacoArchive(keptnContext string) error {
-	folder := MonacoBaseFolder + keptnContext
+func ExtractMonacoArchive(keptnEvent *BaseKeptnEvent) error {
+	folder := GetTempMonacoFolder(keptnEvent)
 	file := folder + "/monaco.zip"
 	err := ExtractZIPArchive(file, folder)
 	if err != nil {
@@ -386,14 +390,14 @@ func ExtractZIPArchive(archiveFileName string, outputFolder string) error {
 	return nil
 }
 
-func ExecuteMonaco(dtCredentials *DTCredentials, keptnContext string, data *keptnlib.ConfigurationChangeEventData, projects string, verbose bool, dryrun bool) error {
+func ExecuteMonaco(dtCredentials *DTCredentials, keptnEvent *BaseKeptnEvent, projects string, verbose bool, dryrun bool) error {
 
 	cmd := exec.Command(MonacoExecutable)
 
-	monacoFolder := MonacoBaseFolder + keptnContext
+	tmpMonacoFolder := GetTempMonacoFolder(keptnEvent)
 	// If running in a locla environment, use a local test folder
 	if common.RunLocal {
-		monacoFolder = "monaco-test"
+		tmpMonacoFolder = "monaco-test"
 	}
 
 	if verbose {
@@ -406,15 +410,27 @@ func ExecuteMonaco(dtCredentials *DTCredentials, keptnContext string, data *kept
 	if projects != "" {
 		cmd.Args = append(cmd.Args, "-p="+projects)
 	}
-	cmd.Args = append(cmd.Args, monacoFolder+"/projects")
+	cmd.Args = append(cmd.Args, tmpMonacoFolder+"/projects")
 
 	// Set environment variables to be used in monaco
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "DT_ENVIRONMENT_URL="+dtCredentials.Tenant)
 	cmd.Env = append(cmd.Env, "DT_API_TOKEN="+dtCredentials.ApiToken)
-	cmd.Env = append(cmd.Env, "KEPTN_PROJECT="+data.Project)
-	cmd.Env = append(cmd.Env, "KEPTN_SERVICE="+data.Service)
-	cmd.Env = append(cmd.Env, "KEPTN_STAGE="+data.Stage)
+	cmd.Env = append(cmd.Env, "KEPTN_PROJECT="+keptnEvent.Project)
+	cmd.Env = append(cmd.Env, "KEPTN_SERVICE="+keptnEvent.Service)
+	cmd.Env = append(cmd.Env, "KEPTN_STAGE="+keptnEvent.Stage)
+	cmd.Env = append(cmd.Env, "KEPTN_CONTEXT="+keptnEvent.Context)
+
+	// also adding labels to env variables
+	for key, value := range keptnEvent.Labels {
+		labelKey := strings.ToUpper(key)
+		labelKey = strings.ReplaceAll(labelKey, " ", "_")
+		labelKey = strings.ReplaceAll(labelKey, "/", "_")
+		labelKey = strings.ReplaceAll(labelKey, "%", "_")
+
+		cmd.Env = append(cmd.Env, fmt.Sprintf("KEPTN_LABEL_%s=%s", labelKey, url.QueryEscape(value)))
+	}
+
 	fmt.Printf("Monaco command: %v\n", cmd.String())
 	stdoutStderr, err := cmd.CombinedOutput()
 	fmt.Printf("%s\n", stdoutStderr)
@@ -425,7 +441,7 @@ func ExecuteMonaco(dtCredentials *DTCredentials, keptnContext string, data *kept
 /**
  * Tries to download the zip file and if it exists extracts it into a unique folder based on the keptn context id
  */
-func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, shkeptncontext string, zipFilePath string, logger *keptn.Logger) error {
+func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string, logger *keptn.Logger) error {
 	// Get archive from Keptn
 	monacoArchive, err := GetKeptnResource(keptnEvent, zipFilePath, logger)
 	if err != nil {
@@ -434,7 +450,7 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, shkeptncontext stri
 	}
 
 	// copy archive
-	err = CopyFileContentsToMonacoProject(monacoArchive, shkeptncontext)
+	err = CopyFileContentsToMonacoProject(monacoArchive, keptnEvent)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error copying monaco archive for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
@@ -442,12 +458,12 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, shkeptncontext stri
 	logger.Info(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
 
 	// extract archive and copy to folder
-	err = ExtractMonacoArchive(shkeptncontext)
+	err = ExtractMonacoArchive(keptnEvent)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error extracting archive for project=%s,stage=%s,service=%s : %s, breaking ", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
-	logger.Info(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, shkeptncontext))
+	logger.Info(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, keptnEvent.Context))
 
 	return nil
 }
@@ -455,9 +471,9 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, shkeptncontext stri
 /**
  * Tries to download all files under the projectsPaths it into a unique folder based on the keptn context id
  */
-func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, shkeptncontext string, projectsPath string, logger *keptn.Logger) error {
-	// target folder should be /tmp/monaco/SHKEPTNCONTEXT/projects
-	folder := MonacoBaseFolder + shkeptncontext + "/" + MonacoProjectsSubfolder
+func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, projectsPath string, logger *keptn.Logger) error {
+	// target folder should be /tmp/monaco/SHKEPTNCONTEXT-STAGE/projects
+	folder := GetTempMonacoFolder(keptnEvent) + "/" + MonacoProjectsSubfolder
 
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0644)
@@ -475,7 +491,7 @@ func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, shkeptncontext st
 	return nil
 }
 
-func PrepareFiles(keptnEvent *BaseKeptnEvent, shkeptncontext string, logger *keptn.Logger) error {
+func PrepareFiles(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
 
 	// create base folder
 	err := CreateBaseFolderIfNotExist()
@@ -486,25 +502,25 @@ func PrepareFiles(keptnEvent *BaseKeptnEvent, shkeptncontext string, logger *kep
 	logger.Info(fmt.Sprintf("Monaco base folder created"))
 
 	/// create keptn context folder for project
-	err = CreateTempFolderForKeptnContext(shkeptncontext)
+	err, tmpFolderPath := CreateTempFolderForKeptnContext(keptnEvent)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error creating monaco temp folder for keptncontext %s: %s, breaking", shkeptncontext, err.Error()))
+		logger.Error(fmt.Sprintf("Error creating monaco temp folder %s: %s, breaking", tmpFolderPath, err.Error()))
 		return err
 	}
-	logger.Info(fmt.Sprintf("Monaco temp folder created for keptncontext %s", shkeptncontext))
+	logger.Info(fmt.Sprintf("Monaco temp folder created %s", tmpFolderPath))
 
 	// We provide two options for monaco files
 	// Option 1: zipped file under dynatrace/monaco.zip
 	// Option 2: folder structure as defined in project monaco under dynatrace/projects
 
 	// We first try option 1 as this was the initial implementation of the monaco service
-	err = DownloadAndExtractMonacoZip(keptnEvent, shkeptncontext, "dynatrace/monaco.zip", logger)
+	err = DownloadAndExtractMonacoZip(keptnEvent, "dynatrace/monaco.zip", logger)
 	if err == nil {
 		return nil
 	}
 
 	// Now lets try option 2 where we assume there is a projects folder under dynatrace. we simply download all these files
-	err = DownloadAllFilesFromSubfolder(keptnEvent, shkeptncontext, "/dynatrace/projects/", logger)
+	err = DownloadAllFilesFromSubfolder(keptnEvent, "/dynatrace/projects/", logger)
 
 	return err
 }
