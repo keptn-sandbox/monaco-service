@@ -65,10 +65,10 @@ EXPOSE 8080
 # required for external tools to detect this as a go binary
 ENV GOTRACEBACK=all
 
-# KEEP THE FOLLOWING LINES COMMENTED OUT!!! (they will be included within the travis-ci build)
-#travis-uncomment ADD docker/MANIFEST /
-#travis-uncomment COPY docker/entrypoint.sh /
-#travis-uncomment ENTRYPOINT ["/entrypoint.sh"]
+# KEEP THE FOLLOWING LINES COMMENTED OUT!!! (they will be included within the CI build)
+#build-uncomment ADD MANIFEST /
+#build-uncomment COPY entrypoint.sh /
+#build-uncomment ENTRYPOINT ["/entrypoint.sh"]
 
 # Run the web service on container startup.
 CMD ["/monaco-service"]
