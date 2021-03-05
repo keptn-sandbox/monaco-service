@@ -40,6 +40,7 @@ func HandleConfigureMonitoringTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEve
 func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevents.Event, data *keptnv2.EventData) error {
 	log.Printf("Handling monaco.triggered Event: %s", incomingEvent.Context.GetID())
 
+	data.Message = "Starting to query for Monaco Projects"
 	_, err := myKeptn.SendTaskStartedEvent(data, ServiceName)
 
 	var shkeptncontext string
@@ -77,14 +78,20 @@ func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevent
 	dtCredentials, err := getDynatraceCredentials(dtCreds, data.Project)
 
 	if err != nil {
-		log.Fatal("Failed to fetch Dynatrace credentials: " + err.Error())
+		// log.Println("Failed to fetch Dynatrace credentials: " + err.Error())
+		data.Message = "Failed to fetch Dynatrace credentials: " + err.Error()
+		data.Result = "failed"
+		_, err = myKeptn.SendTaskFinishedEvent(data, ServiceName)
 		return err
 	}
 
 	// Prepare the folder structure for monaco (create base + shkeptncontext temp folder, copy files, get monaco.zip, extract and copy to temp)
 	err = common.PrepareFiles(keptnEvent)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error preparing monaco files: %s", err.Error()))
+		// log.Println(fmt.Sprintf("Error preparing monaco files: %s", err.Error()))
+		data.Message = fmt.Sprintf("Error preparing monaco files: %s", err.Error())
+		data.Result = "failed"
+		_, err = myKeptn.SendTaskFinishedEvent(data, ServiceName)
 		return err
 	}
 
@@ -108,6 +115,8 @@ func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevent
 		log.Println(fmt.Sprintf("Delete temp folder for %s", keptnEvent.Context))
 	}
 
+	data.Message = "Successfully ran monaco!"
+	data.Result = "succeeded"
 	_, err = myKeptn.SendTaskFinishedEvent(data, ServiceName)
 
 	return nil
@@ -125,7 +134,7 @@ func getDynatraceCredentials(secretName string, project string) (*common.DTCrede
 		dtCredentials, err := common.GetDTCredentials(secret)
 
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Error retrieving secret '%s': %v", secret, err))
+			log.Println(fmt.Sprintf("Error retrieving secret '%s': %v", secret, err))
 		}
 
 		if err == nil && dtCredentials != nil {

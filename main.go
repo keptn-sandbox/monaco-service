@@ -48,17 +48,22 @@ func parseKeptnCloudEventPayload(event cloudevents.Event, data interface{}) erro
  * See https://github.com/keptn/spec/blob/0.2.0-alpha/cloudevents.md for details on the payload
  */
 func processKeptnCloudEvent(ctx context.Context, event cloudevents.Event) error {
+
+	var shkeptncontext string
+	event.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
+	logger := keptn.NewLogger(shkeptncontext, event.Context.GetID(), ServiceName)
+
 	// create keptn handler
-	log.Printf("Initializing Keptn Handler")
+	logger.Info("Initializing Keptn Handler")
 	myKeptn, err := keptnv2.NewKeptn(&event, keptnOptions)
 	if err != nil {
 		return errors.New("Could not create Keptn Handler: " + err.Error())
 	}
 
-	log.Printf("gotEvent(%s): %s - %s", event.Type(), myKeptn.KeptnContext, event.Context.GetID())
+	logger.Info(fmt.Sprintf("gotEvent(%s): %s - %s", event.Type(), myKeptn.KeptnContext, event.Context.GetID()))
 
 	if err != nil {
-		log.Printf("failed to parse incoming cloudevent: %v", err)
+		logger.Error(fmt.Sprintf("failed to parse incoming cloudevent: %v", err))
 		return err
 	}
 
@@ -122,7 +127,7 @@ func processKeptnCloudEvent(ctx context.Context, event cloudevents.Event) error 
 	switch event.Type() {
 
 	case keptnv2.GetTriggeredEventType(keptnv2.ConfigureMonitoringTaskName): // sh.keptn.event.configure-monitoring.triggered
-		log.Printf("Processing configure-monitoring.Triggered Event")
+		logger.Info("Processing configure-monitoring.Triggered Event")
 
 		eventData := &keptnv2.ConfigureMonitoringTriggeredEventData{}
 		parseKeptnCloudEventPayload(event, eventData)
@@ -134,7 +139,7 @@ func processKeptnCloudEvent(ctx context.Context, event cloudevents.Event) error 
 	// see https://github.com/keptn-sandbox/echo-service/blob/a90207bc119c0aca18368985c7bb80dea47309e9/pkg/events.go
 	// for an example on how to generate your own CloudEvents and structs
 	case keptnv2.GetTriggeredEventType(MonacoEvent): // sh.keptn.event.your-event.triggered
-		log.Printf("Processing your-event.triggered Event")
+		logger.Info("Processing your-event.triggered Event")
 
 		eventData := &keptnv2.EventData{}
 		parseKeptnCloudEventPayload(event, eventData)
@@ -193,7 +198,7 @@ func processKeptnCloudEvent(ctx context.Context, event cloudevents.Event) error 
 	var errorMsg string
 	errorMsg = fmt.Sprintf("Unhandled Keptn Cloud Event: %s", event.Type())
 
-	log.Print(errorMsg)
+	logger.Error(errorMsg)
 	return nil
 }
 
@@ -225,7 +230,7 @@ func _main(args []string, env envConfig) int {
 
 	keptnOptions.ConfigurationServiceURL = env.ConfigurationServiceUrl
 
-	log.Println("Starting keptn-service-template-go...")
+	log.Println("Starting monaco-service...")
 	log.Printf("    on Port = %d; Path=%s", env.Port, env.Path)
 
 	ctx := context.Background()
