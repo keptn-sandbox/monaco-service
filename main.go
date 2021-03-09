@@ -26,6 +26,10 @@ type envConfig struct {
 	ConfigurationServiceUrl string `envconfig:"CONFIGURATION_SERVICE" default:""`
 }
 
+type MonacoStartedEventData struct {
+	keptnv2.EventData
+}
+
 // ServiceName specifies the current services name (e.g., used as source when sending CloudEvents)
 const ServiceName = "monaco-service"
 const MonacoEvent = "monaco"
@@ -138,10 +142,10 @@ func processKeptnCloudEvent(ctx context.Context, event cloudevents.Event) error 
 	// your custom cloud event, e.g., sh.keptn.your-event
 	// see https://github.com/keptn-sandbox/echo-service/blob/a90207bc119c0aca18368985c7bb80dea47309e9/pkg/events.go
 	// for an example on how to generate your own CloudEvents and structs
-	case keptnv2.GetTriggeredEventType(MonacoEvent): // sh.keptn.event.your-event.triggered
-		logger.Info("Processing your-event.triggered Event")
+	case keptnv2.GetTriggeredEventType(MonacoEvent): // sh.keptn.event.monaco.triggered
+		logger.Info("Processing sh.keptn.event.monaco.triggered Event")
 
-		eventData := &keptnv2.EventData{}
+		eventData := &MonacoStartedEventData{}
 		parseKeptnCloudEventPayload(event, eventData)
 
 		return HandleMonacoTriggeredEvent(myKeptn, event, eventData)

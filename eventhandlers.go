@@ -37,23 +37,27 @@ func HandleConfigureMonitoringTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEve
 
 // HandleConfigureMonitoringTriggeredEvent handles configure-monitoring.triggered events
 // TODO: add in your handler code
-func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevents.Event, data *keptnv2.EventData) error {
-	log.Printf("Handling monaco.triggered Event: %s", incomingEvent.Context.GetID())
+func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevents.Event, data *MonacoStartedEventData) error {
+	fmt.Println("Handling monaco.triggered Event: %s", incomingEvent.Context.GetID())
 
-	data.Message = "Starting to query for Monaco Projects"
+	data.EventData.Message = "Starting to query for Monaco Projects"
 	_, err := myKeptn.SendTaskStartedEvent(data, ServiceName)
+
+	if err != nil {
+		return err
+	}
 
 	var shkeptncontext string
 	incomingEvent.Context.ExtensionAs("shkeptncontext", &shkeptncontext)
 
-	log.Println(fmt.Sprintf("Handling Configuration Changed Event: %s", incomingEvent.Context.GetID()))
-	log.Println(fmt.Sprintf("Processing sh.keptn.event.configuration.change for %s.%s.%s", data.Project, data.Stage, data.Service))
+	fmt.Sprintf("Handling Configuration Changed Event: %s", incomingEvent.Context.GetID())
+	fmt.Sprintf("Processing sh.keptn.event.configuration.change for %s.%s.%s", data.EventData.GetProject(), data.EventData.GetStage(), data.EventData.GetService())
 
 	keptnEvent := &common.BaseKeptnEvent{}
-	keptnEvent.Project = data.Project
-	keptnEvent.Stage = data.Stage
-	keptnEvent.Service = data.Service
-	keptnEvent.Labels = data.Labels
+	keptnEvent.Project = data.EventData.GetProject()
+	keptnEvent.Stage = data.EventData.GetStage()
+	keptnEvent.Service = data.EventData.GetService()
+	keptnEvent.Labels = data.EventData.GetLabels()
 	keptnEvent.Context = shkeptncontext
 
 	monacoConfigFile, _ := common.GetMonacoConfig(keptnEvent)
@@ -61,37 +65,43 @@ func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevent
 	if monacoConfigFile != nil {
 		// implementing https://github.com/keptn-contrib/dynatrace-sli-service/issues/90
 		dtCreds = common.ReplaceKeptnPlaceholders(monacoConfigFile.DtCreds, keptnEvent)
-		log.Println("Found monaco.conf.yaml with DTCreds: " + dtCreds)
+		fmt.Println("Found monaco.conf.yaml with DTCreds: " + dtCreds)
 	} else {
-		log.Println("Using default DTCreds: dynatrace as no custom monaco.conf.yaml was found!")
+		fmt.Println("Using default DTCreds: dynatrace as no custom monaco.conf.yaml was found!")
 		monacoConfigFile = &common.MonacoConfigFile{}
 		monacoConfigFile.DtCreds = "dynatrace"
 	}
 
 	//
 	// Adding DtCreds as a label so users know which DtCreds was used
-	if data.Labels == nil {
-		data.Labels = make(map[string]string)
+	if data.EventData.Labels == nil {
+		data.EventData.Labels = make(map[string]string)
 	}
-	data.Labels["DtCreds"] = monacoConfigFile.DtCreds
+	data.EventData.Labels["DtCreds"] = monacoConfigFile.DtCreds
 
 	dtCredentials, err := getDynatraceCredentials(dtCreds, data.Project)
 
 	if err != nil {
-		// log.Println("Failed to fetch Dynatrace credentials: " + err.Error())
-		data.Message = "Failed to fetch Dynatrace credentials: " + err.Error()
-		data.Result = "failed"
-		_, err = myKeptn.SendTaskFinishedEvent(data, ServiceName)
+		// fmt.Println("Failed to fetch Dynatrace credentials: " + err.Error())
+		finishedData := &keptnv2.EventData{
+			Status:  keptnv2.StatusErrored,
+			Result:  keptnv2.ResultFailed,
+			Message: fmt.Sprintf("Failed to fetch Dynatrace credentials: %v", err.Error()),
+		}
+		_, err = myKeptn.SendTaskFinishedEvent(finishedData, ServiceName)
 		return err
 	}
 
 	// Prepare the folder structure for monaco (create base + shkeptncontext temp folder, copy files, get monaco.zip, extract and copy to temp)
 	err = common.PrepareFiles(keptnEvent)
 	if err != nil {
-		// log.Println(fmt.Sprintf("Error preparing monaco files: %s", err.Error()))
-		data.Message = fmt.Sprintf("Error preparing monaco files: %s", err.Error())
-		data.Result = "failed"
-		_, err = myKeptn.SendTaskFinishedEvent(data, ServiceName)
+		// fmt.Println(fmt.Sprintf("Error preparing monaco files: %s", err.Error()))
+		finishedData := &keptnv2.EventData{
+			Status:  keptnv2.StatusErrored,
+			Result:  keptnv2.ResultFailed,
+			Message: fmt.Sprintf("Error preparing monaco files: %s", err.Error()),
+		}
+		_, err = myKeptn.SendTaskFinishedEvent(finishedData, ServiceName)
 		return err
 	}
 
@@ -108,16 +118,19 @@ func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevent
 	keeptemp, _ := strconv.ParseBool(keeptempString)
 
 	if keeptemp {
-		log.Println(fmt.Sprintf("Not deleting temp folder (MONACO_KEEP_TEMP_DIR=true) for %s", keptnEvent.Context))
+		fmt.Sprintf("Not deleting temp folder (MONACO_KEEP_TEMP_DIR=true) for %s", keptnEvent.Context)
 	} else {
 		// Clean up: remove temp folder for Context
 		err = common.DeleteTempFolderForKeptnContext(keptnEvent)
-		log.Println(fmt.Sprintf("Delete temp folder for %s", keptnEvent.Context))
+		fmt.Sprintf("Delete temp folder for %s", keptnEvent.Context)
 	}
 
-	data.Message = "Successfully ran monaco!"
-	data.Result = "succeeded"
-	_, err = myKeptn.SendTaskFinishedEvent(data, ServiceName)
+	finishedData := &keptnv2.EventData{
+		Status:  keptnv2.StatusSucceeded,
+		Result:  keptnv2.ResultPass,
+		Message: "Successfully ran monaco!",
+	}
+	_, err = myKeptn.SendTaskFinishedEvent(finishedData, ServiceName)
 
 	return nil
 }
@@ -133,13 +146,13 @@ func getDynatraceCredentials(secretName string, project string) (*common.DTCrede
 
 		dtCredentials, err := common.GetDTCredentials(secret)
 
-		if err != nil {
-			log.Println(fmt.Sprintf("Error retrieving secret '%s': %v", secret, err))
-		}
+		/* if err != nil {
+			fmt.Println("Error retrieving secret '%s': %v", secret, err)
+		}*/
 
 		if err == nil && dtCredentials != nil {
 			// lets validate if the tenant URL is
-			log.Println(fmt.Sprintf("Secret '%s' with credentials found, returning (%s) ...", secret, dtCredentials.Tenant))
+			fmt.Println("Secret '%s' with credentials found, returning (%s) ...", secret, dtCredentials.Tenant)
 			return dtCredentials, nil
 		}
 	}
