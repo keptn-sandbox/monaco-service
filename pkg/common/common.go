@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -14,10 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/keptn-contrib/dynatrace-sli-service/pkg/common"
 	keptnmodels "github.com/keptn/go-utils/pkg/api/models"
 	keptnapi "github.com/keptn/go-utils/pkg/api/utils"
-	keptn "github.com/keptn/go-utils/pkg/lib/keptn"
 	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -133,7 +132,7 @@ func ReplaceKeptnPlaceholders(input string, keptnEvent *BaseKeptnEvent) string {
 // In RunLocal mode it gets it from the local disk
 // In normal mode it first tries to find it on service level, then stage and then project level
 //
-func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *keptn.Logger) (string, error) {
+func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string) (string, error) {
 
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	var fileContent string
@@ -141,10 +140,10 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 		localFileContent, err := ioutil.ReadFile(resourceURI)
 		if err != nil {
 			logMessage := fmt.Sprintf("No %s file found LOCALLY for service %s in stage %s in project %s", resourceURI, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project)
-			logger.Info(logMessage)
+			log.Printf(logMessage)
 			return "", nil
 		}
-		logger.Info("Loaded LOCAL file " + resourceURI)
+		log.Printf("Loaded LOCAL file " + resourceURI)
 		fileContent = string(localFileContent)
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
@@ -158,16 +157,16 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 				// Lets search on PROJECT-LEVEL
 				keptnResourceContent, err = resourceHandler.GetProjectResource(keptnEvent.Project, resourceURI)
 				if err != nil || keptnResourceContent == nil || keptnResourceContent.ResourceContent == "" {
-					// logger.Debug(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
+					// log.Printf(fmt.Sprintf("No Keptn Resource found: %s/%s/%s/%s - %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, resourceURI, err))
 					return "", err
 				}
 
-				logger.Debug("Found " + resourceURI + " on project level")
+				log.Printf("Found " + resourceURI + " on project level")
 			} else {
-				logger.Debug("Found " + resourceURI + " on stage level")
+				log.Printf("Found " + resourceURI + " on stage level")
 			}
 		} else {
-			logger.Debug("Found " + resourceURI + " on service level")
+			log.Printf("Found " + resourceURI + " on service level")
 		}
 		fileContent = keptnResourceContent.ResourceContent
 	}
@@ -176,16 +175,16 @@ func GetKeptnResource(keptnEvent *BaseKeptnEvent, resourceURI string, logger *ke
 }
 
 // GetMonacoConfig loads monaco.conf for the current service
-func GetMonacoConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*MonacoConfigFile, error) {
+func GetMonacoConfig(keptnEvent *BaseKeptnEvent) (*MonacoConfigFile, error) {
 
-	monacoConfFileContent, err := GetKeptnResource(keptnEvent, MonacoConfigFilename, logger)
+	monacoConfFileContent, err := GetKeptnResource(keptnEvent, MonacoConfigFilename)
 	if err != nil {
 		return nil, err
 	}
 
 	if monacoConfFileContent == "" {
 		// loaded an empty file
-		logger.Debug("Content of monaco.conf.yaml is empty!")
+		log.Printf("Content of monaco.conf.yaml is empty!")
 		return nil, nil
 	}
 
@@ -194,7 +193,7 @@ func GetMonacoConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*MonacoC
 
 	if err != nil {
 		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s; Content: %s", MonacoConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error(), monacoConfFileContent)
-		logger.Error(logMessage)
+		log.Fatal(logMessage)
 		return nil, errors.New(logMessage)
 	}
 	fmt.Printf("GetMonacoConfig monacoConfFile: %v\n", monacoConfFile)
@@ -202,7 +201,7 @@ func GetMonacoConfig(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) (*MonacoC
 }
 
 // UploadKeptnResource uploads a file to the Keptn Configuration Service
-func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
+func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptnEvent *BaseKeptnEvent) error {
 
 	// if we run in a runlocal mode we are just getting the file from the local disk
 	if RunLocal || RunLocalTest {
@@ -210,7 +209,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 		if err != nil {
 			return fmt.Errorf("Couldnt write local file %s: %v", remoteResourceURI, err)
 		}
-		logger.Info("Local file written " + remoteResourceURI)
+		log.Printf("Local file written " + remoteResourceURI)
 	} else {
 		resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
@@ -221,7 +220,7 @@ func UploadKeptnResource(contentToUpload []byte, remoteResourceURI string, keptn
 			return fmt.Errorf("Couldnt upload remote resource %s: %s", remoteResourceURI, *err.Message)
 		}
 
-		logger.Info(fmt.Sprintf("Uploaded file %s", remoteResourceURI))
+		log.Printf(fmt.Sprintf("Uploaded file %s", remoteResourceURI))
 	}
 
 	return nil
@@ -396,7 +395,7 @@ func ExecuteMonaco(dtCredentials *DTCredentials, keptnEvent *BaseKeptnEvent, pro
 
 	tmpMonacoFolder := GetTempMonacoFolder(keptnEvent)
 	// If running in a locla environment, use a local test folder
-	if common.RunLocal {
+	if RunLocal {
 		tmpMonacoFolder = "monaco-test"
 	}
 
@@ -441,29 +440,29 @@ func ExecuteMonaco(dtCredentials *DTCredentials, keptnEvent *BaseKeptnEvent, pro
 /**
  * Tries to download the zip file and if it exists extracts it into a unique folder based on the keptn context id
  */
-func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string, logger *keptn.Logger) error {
+func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string) error {
 	// Get archive from Keptn
-	monacoArchive, err := GetKeptnResource(keptnEvent, zipFilePath, logger)
+	monacoArchive, err := GetKeptnResource(keptnEvent, zipFilePath)
 	if err != nil {
-		logger.Error(fmt.Sprintf("No monaco archive found for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s, breaking", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
+		log.Fatal(fmt.Sprintf("No monaco archive found for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s, breaking", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
 
 	// copy archive
 	err = CopyFileContentsToMonacoProject(monacoArchive, keptnEvent)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error copying monaco archive for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
+		log.Fatal(fmt.Sprintf("Error copying monaco archive for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
-	logger.Info(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
+	log.Printf(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
 
 	// extract archive and copy to folder
 	err = ExtractMonacoArchive(keptnEvent)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error extracting archive for project=%s,stage=%s,service=%s : %s, breaking ", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
+		log.Fatal(fmt.Sprintf("Error extracting archive for project=%s,stage=%s,service=%s : %s, breaking ", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
-	logger.Info(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, keptnEvent.Context))
+	log.Printf(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, keptnEvent.Context))
 
 	return nil
 }
@@ -471,14 +470,14 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string,
 /**
  * Tries to download all files under the projectsPaths it into a unique folder based on the keptn context id
  */
-func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, projectsPath string, logger *keptn.Logger) error {
+func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, projectsPath string) error {
 	// target folder should be /tmp/monaco/SHKEPTNCONTEXT-STAGE/projects
 	folder := GetTempMonacoFolder(keptnEvent) + "/" + MonacoProjectsSubfolder
 
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0644)
 	fileMatchPattern := projectsPath
-	downloadedFileCount, err := GetAllKeptnResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, true, fileMatchPattern, folder, logger)
+	downloadedFileCount, err := GetAllKeptnResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, true, fileMatchPattern, folder)
 
 	if err != nil {
 		return err
@@ -491,36 +490,36 @@ func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, projectsPath stri
 	return nil
 }
 
-func PrepareFiles(keptnEvent *BaseKeptnEvent, logger *keptn.Logger) error {
+func PrepareFiles(keptnEvent *BaseKeptnEvent) error {
 
 	// create base folder
 	err := CreateBaseFolderIfNotExist()
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error creating monaco base folder: %s, breaking", err.Error()))
+		log.Fatal(fmt.Sprintf("Error creating monaco base folder: %s, breaking", err.Error()))
 		return err
 	}
-	logger.Info(fmt.Sprintf("Monaco base folder created"))
+	log.Printf(fmt.Sprintf("Monaco base folder created"))
 
 	/// create keptn context folder for project
 	err, tmpFolderPath := CreateTempFolderForKeptnContext(keptnEvent)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error creating monaco temp folder %s: %s, breaking", tmpFolderPath, err.Error()))
+		log.Fatal(fmt.Sprintf("Error creating monaco temp folder %s: %s, breaking", tmpFolderPath, err.Error()))
 		return err
 	}
-	logger.Info(fmt.Sprintf("Monaco temp folder created %s", tmpFolderPath))
+	log.Printf(fmt.Sprintf("Monaco temp folder created %s", tmpFolderPath))
 
 	// We provide two options for monaco files
 	// Option 1: zipped file under dynatrace/monaco.zip
 	// Option 2: folder structure as defined in project monaco under dynatrace/projects
 
 	// We first try option 1 as this was the initial implementation of the monaco service
-	err = DownloadAndExtractMonacoZip(keptnEvent, "dynatrace/monaco.zip", logger)
+	err = DownloadAndExtractMonacoZip(keptnEvent, "dynatrace/monaco.zip")
 	if err == nil {
 		return nil
 	}
 
 	// Now lets try option 2 where we assume there is a projects folder under dynatrace. we simply download all these files
-	err = DownloadAllFilesFromSubfolder(keptnEvent, "/dynatrace/projects/", logger)
+	err = DownloadAllFilesFromSubfolder(keptnEvent, "/dynatrace/projects/")
 
 	return err
 }
@@ -610,7 +609,7 @@ func Unzip(src string, dest string) ([]string, error) {
  * no of resources: total number of downloaded resources
  * error: any error that occured
  */
-func GetAllKeptnResources(project string, stage string, service string, inheritResources bool, resourceUriFolderOfInterest string, localDirectory string, logger *keptn.Logger) (int, error) {
+func GetAllKeptnResources(project string, stage string, service string, inheritResources bool, resourceUriFolderOfInterest string, localDirectory string) (int, error) {
 
 	resourceHandler := keptnapi.NewResourceHandler(GetConfigurationServiceURL())
 
@@ -671,7 +670,7 @@ func GetAllKeptnResources(project string, stage string, service string, inheritR
 				return fileCount, err
 			}
 
-			logger.Debug(fmt.Sprintf("Storing %s to %s/%s - size (%d)", *resource.ResourceURI, localDirectory, targetFileName, len(downloadedResource.ResourceContent)))
+			log.Printf(fmt.Sprintf("Storing %s to %s/%s - size (%d)", *resource.ResourceURI, localDirectory, targetFileName, len(downloadedResource.ResourceContent)))
 			stored, err := storeFile(localDirectory, targetFileName, downloadedResource.ResourceContent, true)
 			if err != nil {
 				return fileCount, err
@@ -682,11 +681,11 @@ func GetAllKeptnResources(project string, stage string, service string, inheritR
 			}
 		} else {
 			skippedFileCount = skippedFileCount + 1
-			// 	logger.Debug(fmt.Sprintf("Not storing %s as it doesnt match %s or %s", *resource.ResourceURI, primaryTestFileName, resourceUriFolderOfInterest))
+			// 	log.Printf(fmt.Sprintf("Not storing %s as it doesnt match %s or %s", *resource.ResourceURI, primaryTestFileName, resourceUriFolderOfInterest))
 		}
 	}
 
-	logger.Debug(fmt.Sprintf("Downloaded %d and skipped %d files for %s in %s.%s.%s", fileCount, skippedFileCount, resourceUriFolderOfInterest, project, stage, service))
+	log.Printf(fmt.Sprintf("Downloaded %d and skipped %d files for %s in %s.%s.%s", fileCount, skippedFileCount, resourceUriFolderOfInterest, project, stage, service))
 
 	return fileCount, nil
 }
