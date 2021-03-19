@@ -38,7 +38,7 @@ func HandleConfigureMonitoringTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEve
 // HandleConfigureMonitoringTriggeredEvent handles configure-monitoring.triggered events
 // TODO: add in your handler code
 func HandleMonacoTriggeredEvent(myKeptn *keptnv2.Keptn, incomingEvent cloudevents.Event, data *MonacoStartedEventData) error {
-	fmt.Println("Handling monaco.triggered Event: %s", incomingEvent.Context.GetID())
+	fmt.Printf("Handling monaco.triggered Event: %s", incomingEvent.Context.GetID())
 
 	data.EventData.Message = "Starting to query for Monaco Projects"
 	_, err := myKeptn.SendTaskStartedEvent(data, ServiceName)
@@ -152,7 +152,7 @@ func getDynatraceCredentials(secretName string, project string) (*common.DTCrede
 
 		if err == nil && dtCredentials != nil {
 			// lets validate if the tenant URL is
-			fmt.Println("Secret '%s' with credentials found, returning (%s) ...", secret, dtCredentials.Tenant)
+			fmt.Printf("Secret '%s' with credentials found, returning (%s) ...", secret, dtCredentials.Tenant)
 			return dtCredentials, nil
 		}
 	}

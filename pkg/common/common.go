@@ -193,7 +193,7 @@ func GetMonacoConfig(keptnEvent *BaseKeptnEvent) (*MonacoConfigFile, error) {
 
 	if err != nil {
 		logMessage := fmt.Sprintf("Couldn't parse %s file found for service %s in stage %s in project %s. Error: %s; Content: %s", MonacoConfigFilename, keptnEvent.Service, keptnEvent.Stage, keptnEvent.Project, err.Error(), monacoConfFileContent)
-		log.Fatal(logMessage)
+		log.Printf(logMessage)
 		return nil, errors.New(logMessage)
 	}
 	fmt.Printf("GetMonacoConfig monacoConfFile: %v\n", monacoConfFile)
@@ -312,7 +312,7 @@ func GetConfigurationServiceURL() string {
 func CreateBaseFolderIfNotExist() error {
 	path := MonacoBaseFolder
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		errmkdir := os.Mkdir(path, 0755)
+		errmkdir := os.Mkdir(path, os.ModePerm)
 		if errmkdir != nil {
 			return errmkdir
 		}
@@ -325,7 +325,7 @@ func CreateBaseFolderIfNotExist() error {
 func CreateTempFolderForKeptnContext(keptnEvent *BaseKeptnEvent) (error, string) {
 	path := GetTempMonacoFolder(keptnEvent)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		errmkdir := os.Mkdir(path, 0755)
+		errmkdir := os.Mkdir(path, os.ModePerm)
 		if errmkdir != nil {
 			return errmkdir, path
 		}
@@ -444,14 +444,14 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string)
 	// Get archive from Keptn
 	monacoArchive, err := GetKeptnResource(keptnEvent, zipFilePath)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("No monaco archive found for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s, breaking", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
+		log.Printf(fmt.Sprintf("No monaco archive found for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s, breaking", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
 
 	// copy archive
 	err = CopyFileContentsToMonacoProject(monacoArchive, keptnEvent)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error copying monaco archive for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
+		log.Printf(fmt.Sprintf("Error copying monaco archive for project=%s,stage=%s,service=%s found as no dynatrace/monaco.zip in repo: %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
 	log.Printf(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service))
@@ -459,10 +459,10 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string)
 	// extract archive and copy to folder
 	err = ExtractMonacoArchive(keptnEvent)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error extracting archive for project=%s,stage=%s,service=%s : %s, breaking ", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
+		log.Printf(fmt.Sprintf("Error extracting archive for project=%s,stage=%s,service=%s : %s, breaking ", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, err.Error()))
 		return err
 	}
-	log.Printf(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, keptnEvent.Context))
+	log.Printf(fmt.Sprintf("Succesfully copied archive for project=%s,stage=%s,service=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, zipFilePath))
 
 	return nil
 }
@@ -471,11 +471,23 @@ func DownloadAndExtractMonacoZip(keptnEvent *BaseKeptnEvent, zipFilePath string)
  * Tries to download all files under the projectsPaths it into a unique folder based on the keptn context id
  */
 func DownloadAllFilesFromSubfolder(keptnEvent *BaseKeptnEvent, projectsPath string) error {
+
 	// target folder should be /tmp/monaco/SHKEPTNCONTEXT-STAGE/projects
 	folder := GetTempMonacoFolder(keptnEvent) + "/" + MonacoProjectsSubfolder
 
-	os.RemoveAll(folder)
-	os.MkdirAll(folder, 0644)
+	log.Printf(fmt.Sprintf("Downloading all files from project=%s,stage=%s,service=%s projectsPath=%s to temp folder %s", keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, projectsPath, folder))
+
+	err := os.RemoveAll(folder)
+	if err != nil {
+		log.Printf(fmt.Sprintf("Error cleaning temp folder '%s' content: %v", folder, err))
+		return err
+	}
+	err = os.MkdirAll(folder, os.ModePerm)
+	if err != nil {
+		log.Printf(fmt.Sprintf("Error creating temp folder '%s' content: %v", folder, err))
+		return err
+	}
+
 	fileMatchPattern := projectsPath
 	downloadedFileCount, err := GetAllKeptnResources(keptnEvent.Project, keptnEvent.Stage, keptnEvent.Service, true, fileMatchPattern, folder)
 
@@ -495,7 +507,7 @@ func PrepareFiles(keptnEvent *BaseKeptnEvent) error {
 	// create base folder
 	err := CreateBaseFolderIfNotExist()
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error creating monaco base folder: %s, breaking", err.Error()))
+		log.Printf(fmt.Sprintf("Error creating monaco base folder: %s, breaking", err.Error()))
 		return err
 	}
 	log.Printf(fmt.Sprintf("Monaco base folder created"))
@@ -503,7 +515,7 @@ func PrepareFiles(keptnEvent *BaseKeptnEvent) error {
 	/// create keptn context folder for project
 	err, tmpFolderPath := CreateTempFolderForKeptnContext(keptnEvent)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error creating monaco temp folder %s: %s, breaking", tmpFolderPath, err.Error()))
+		log.Printf(fmt.Sprintf("Error creating monaco temp folder %s: %s, breaking", tmpFolderPath, err.Error()))
 		return err
 	}
 	log.Printf(fmt.Sprintf("Monaco temp folder created %s", tmpFolderPath))
