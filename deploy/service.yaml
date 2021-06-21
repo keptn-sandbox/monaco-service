@@ -54,6 +54,8 @@ spec:
     metadata:
       labels:
         run: monaco-service
+        app.kubernetes.io/name: monaco-service
+        app.kubernetes.io/version: 0.8.4
     spec:
       containers:
         - name: monaco-service
