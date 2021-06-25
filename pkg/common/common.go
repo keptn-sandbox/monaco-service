@@ -676,8 +676,16 @@ func GetAllKeptnResources(project string, stage string, service string, inheritR
 		// only store it if we really know whether and where we have to store it to!
 		if targetFileName != "" {
 
+			// Issue #30 - ran into an issue where a leading / turned out to be a problem in the remote execution plane
+			resourceName := *resource.ResourceURI
+			if strings.HasPrefix(resourceName, "/") {
+				resourceName = resourceName[1:]
+				// log.Printf(fmt.Sprintf("removed leading / of %s", resourceName))
+			}
+
 			// now we have to download that resource first as so far we only have the resourceURI
-			downloadedResource, err := resourceHandler.GetStageResource(project, stage, *resource.ResourceURI)
+			// downloadedResource, err := resourceHandler.GetStageResource(project, stage, *resource.ResourceURI)
+			downloadedResource, err := resourceHandler.GetStageResource(project, stage, resourceName)
 			if err != nil {
 				return fileCount, err
 			}
