@@ -23,7 +23,7 @@ This implements a monaco-service for Keptn. If you want to learn more about Kept
 |[@grabnerandi](https://github.com/grabnerandi)|       0.7.3      | keptnsandbox/monaco-service:0.2.1 | Fixes & Label Env Variable Support |
 |[@grabnerandi](https://github.com/grabnerandi)|       0.8.0-0.8.3      | keptnsandbox/monaco-service:0.8.0 | Upgrade to support Keptn 0.8.0 |
 |[@grabnerandi](https://github.com/grabnerandi)|       0.8.4      | keptnsandbox/monaco-service:0.8.4 | Upgrade to support Keptn 0.8.4 |
-|[@grabnerandi](https://github.com/grabnerandi)|       0.9.1      | keptnsandbox/monaco-service:0.9.1 | Upgrade to support Keptn 0.9.1 |
+|[@grabnerandi](https://github.com/grabnerandi)|  0.9.x,0.10.x | keptnsandbox/monaco-service:0.9.1 | Upgrade to support Keptn 0.9.x & 0.10.x |
 
 ## Installation
 
